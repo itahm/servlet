@@ -189,17 +189,32 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 						response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 					}
 					else {
-						synchronized(this) {
-							try {
-								wait();
-							} catch (InterruptedException ie) {
-							}
+						JSONObject event = null;
+						
+						if (data.has("index")) {
+							event = Agent.getEvent(data.getLong("index"));
 							
-							if (this.event != null) {
-								try (ServletOutputStream sos = response.getOutputStream()) {
-									sos.write(event);
-									sos.flush();
+						}
+						
+						if (event == null) {
+							synchronized(this) {
+								try {
+									wait();
+								} catch (InterruptedException ie) {
 								}
+								
+								if (this.event != null) {
+									try (ServletOutputStream sos = response.getOutputStream()) {
+										sos.write(this.event);
+										sos.flush();
+									}
+								}
+							}
+						}
+						else {
+							try (ServletOutputStream sos = response.getOutputStream()) {
+								sos.write(event.toString().getBytes(StandardCharsets.UTF_8.name()));
+								sos.flush();
 							}
 						}
 					}
@@ -230,12 +245,32 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 						}
 					}
 				}
+			} catch (JSONException | UnsupportedEncodingException e) {
+				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+				
+				try (ServletOutputStream sos = response.getOutputStream()) {
+					sos.write(new JSONObject().
+						put("error", e.getMessage()).
+						toString().
+						getBytes(StandardCharsets.UTF_8.name()));
+					
+					sos.flush();
+				} catch (IOException ioe) {
+					ioe.printStackTrace();
+				}  				
 			} catch (IOException ioe) {
 				response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 				
-				ioe.printStackTrace();
-			} catch (JSONException jsone) {
-				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+				try (ServletOutputStream sos = response.getOutputStream()) {
+					sos.write(new JSONObject().
+						put("error", ioe.getMessage()).
+						toString().
+						getBytes(StandardCharsets.UTF_8.name()));
+					
+					sos.flush();
+				} catch (IOException ioe2) {
+					ioe2.printStackTrace();
+				}
 			}
 		}
 	}
@@ -245,11 +280,9 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 		synchronized(this) {
 			try {
 				this.event = event.toString().getBytes(StandardCharsets.UTF_8.name());
-			} catch (UnsupportedEncodingException e) {
-				this.event = null;
-			};
-			
-			notifyAll();
+				
+				notifyAll();
+			} catch (UnsupportedEncodingException e) {}
 		}
 		
 		if (broadcast) {
