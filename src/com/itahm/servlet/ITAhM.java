@@ -132,12 +132,20 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 			response.setHeader("Access-Control-Allow-Credentials", "true");
 		}
 		
-		if (cl > 0) {
+		if (cl < 0) {
+			response.setStatus(HttpServletResponse.SC_LENGTH_REQUIRED);
+		}
+		else {
 			byte [] buffer = new byte [cl];
 			JSONObject data;
 			
 			try (InputStream is = request.getInputStream()) {
-				is.read(buffer);
+				for (int i=0, read; i<cl; i++) {
+					read = is.read(buffer, i, cl - i);
+					if (read < 0) {
+						break;
+					}
+				}
 			
 				data = new JSONObject(new String(buffer, StandardCharsets.UTF_8.name()));
 	
