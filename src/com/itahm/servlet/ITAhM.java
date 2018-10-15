@@ -140,9 +140,9 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 			JSONObject data;
 			
 			try (InputStream is = request.getInputStream()) {
-				for (int i=0, read; i<cl; i++) {
-					read = is.read(buffer, i, cl - i);
-					if (read < 0) {
+				for (int i=0; i<cl;) {
+					i += is.read(buffer, i, cl - i);
+					if (i < 0) {
 						break;
 					}
 				}
