@@ -3,8 +3,9 @@ package com.itahm.servlet;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.Date;
@@ -27,110 +28,145 @@ import com.itahm.http.Response;
 @SuppressWarnings("serial")
 public class ITAhM extends HttpServlet implements HTTPListener {
 	
-	private boolean isClosed = true;
 	private byte [] event = null;
 	
 	@Override
 	public void init(ServletConfig config) {
-		byte [] license = null; // new byte [] {(byte)0x6c, (byte)0x3b, (byte)0xe5, (byte)0x51, (byte)0x2D, (byte)0x80};
-		long expire = 0; // 1546268400000L;
-		int limit = 0;
+		System.setErr(
+			new PrintStream(
+				new OutputStream() {
+
+					@Override
+					public void write(int b) throws IOException {
+					}	
+				}
+			) {
 		
-		try {
-			if (!Agent.isValidLicense(license)) {
-				System.out.println("Check your License[1].");
-				
-				return;
+				@Override
+				public void print(Object e) {
+					((Exception)e).printStackTrace(System.out);
+				}
 			}
-		} catch (SocketException se) {
-			se.printStackTrace();
-			
-			return;
+		);
+		
+		String value = config.getInitParameter("license");
+		
+		if (value != null) {
+			try {
+				long l = Long.parseLong(value, 16);
+				byte [] license = new byte[6];
+				
+				for (int i=6; i>0; l>>=8) {
+					license[--i] = (byte)(0xff & l);
+				}
+				
+				if (!Agent.isValidLicense(license)) {
+					System.out.println("Check your License.MAC");
+					
+					return;
+				}
+			} catch (NumberFormatException nfe) {}
 		}
 		
-		File root;
-		try {
-			root = new File(config.getInitParameter("path"));
+		value = config.getInitParameter("expire");
+		
+		if (value != null) {
+			try {
+				long expire = Long.parseLong(value);
+				
+				if (Calendar.getInstance().getTimeInMillis() > expire) {
+					System.out.println("Check your License.Expire");
+					
+					return;
+				}
+	
+				new Timer().schedule(new TimerTask() {
+					
+					@Override
+					public void run() {
+						System.out.println("Check your License.Expire");
+						
+						destroy();
+					}
+				}, new Date(expire));
+				
+				Agent.Config.expire(expire);
+			} catch (NumberFormatException nfe) {}
+		}
+		
+		value = config.getInitParameter("limit");
+		
+		if (value != null) {
+			try {
+				int limit = Integer.parseInt(value);
+				
+				Agent.Config.limit(limit);
+			} catch (NumberFormatException nfe) {}
+		}
+		
+		value = config.getInitParameter("root");
+		
+		if (value != null) {
+			File root = new File(value);
 			
 			if (!root.isDirectory()) {
-				throw new NullPointerException();
-			}
-		}
-		catch (NullPointerException npe) {
-			System.out.println("Root not found.");
-			
-			return;
-		}
-		
-		System.out.format("Root : %s\n", root.getAbsoluteFile());
-		
-		if (expire > 0) {
-			if (Calendar.getInstance().getTimeInMillis() > expire) {
-				System.out.println("Check your License[2].");
+				System.out.println("Check your Configuration.Root");
 				
 				return;
 			}
-
-			new Timer().schedule(new TimerTask() {
-				
-				@Override
-				public void run() {
-					Agent.close();
-					
-					System.out.println("Check your License[3].");
-				}
-			}, new Date(expire));
+		
+			System.out.format("Root : %s\n", root.getAbsoluteFile());
+			
+			Agent.Config.root(root);
+		}
+		else {
+			System.out.println("Check your Configuration.Root");
+			
+			return;
 		}
 		
 		System.out.format("Agent loading...\n");
 		
-		try {
-			Agent.initialize(root);
-		} catch (IOException ioe) {
-			ioe.printStackTrace();
-			
-			return;
-		}
-		
-		Agent.setLimit(limit);
-		Agent.setExpire(expire);
-		Agent.setListener(this);
+		Agent.Config.listener(this);
 		
 		try {	
 			Agent.start();
 		} catch (IOException ioe) {
-			ioe.printStackTrace();
+			System.err.print(ioe);
 			
 			return;
 		}
 	
 		System.out.println("ITAhM agent has been successfully started.");
-		
-		isClosed = false;
 	}
 	
 	@Override
 	public void destroy() {
-		this.isClosed = true;
-		
-		Agent.close();
+		try {
+			Agent.stop();
+		} catch (IOException ioe) {
+			System.err.print(ioe);
+		}
 	}
 	
 	@Override
 	public void doPost(HttpServletRequest request, HttpServletResponse response) {
-		if (this.isClosed) {
-			response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-			
-			return;
-		}
-		
 		String origin = request.getHeader("origin");
-		int cl = request.getContentLength();
 		
 		if (origin != null) {
 			response.setHeader("Access-Control-Allow-Origin", origin);
 			response.setHeader("Access-Control-Allow-Credentials", "true");
 		}
+		
+		if (!Agent.ready) {
+			response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+			
+			return;
+		}
+		
+		
+		int cl = request.getContentLength();
+		
 		
 		if (cl < 0) {
 			response.setStatus(HttpServletResponse.SC_LENGTH_REQUIRED);
