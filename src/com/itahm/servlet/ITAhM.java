@@ -235,9 +235,8 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 					else {
 						JSONObject event = null;
 						
-						if (data.has("index")) {
-							event = Agent.getEvent(data.getLong("index"));
-							
+						if (data.has("event")) {
+							event = Agent.getEvent(data.getString("event"));
 						}
 						
 						if (event == null) {
