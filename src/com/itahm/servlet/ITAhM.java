@@ -19,14 +19,19 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.snmp4j.PDU;
+import org.snmp4j.smi.OID;
+import org.snmp4j.smi.Variable;
+
 import com.itahm.json.JSONException;
 import com.itahm.json.JSONObject;
 import com.itahm.Agent;
-import com.itahm.http.HTTPListener;
+import com.itahm.ITAhMNode;
+import com.itahm.Server;
 import com.itahm.http.Response;
 
 @SuppressWarnings("serial")
-public class ITAhM extends HttpServlet implements HTTPListener {
+public class ITAhM extends HttpServlet implements Server {
 	
 	private byte [] event = null;
 	
@@ -127,7 +132,7 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 		
 		System.out.format("Agent loading...\n");
 		
-		Agent.Config.listener(this);
+		Agent.Config.server(this);
 		
 		try {	
 			Agent.start();
@@ -331,5 +336,17 @@ public class ITAhM extends HttpServlet implements HTTPListener {
 		if (broadcast) {
 			// TODO customize for sms or app
 		}
+	}
+
+	@Override
+	public void setEnterprisePDU(PDU pdu, String pen) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public boolean parseEnterprise(ITAhMNode node, OID response, Variable variable, OID request) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }
