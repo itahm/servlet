@@ -28,6 +28,7 @@ import com.itahm.json.JSONObject;
 import com.itahm.Agent;
 import com.itahm.ITAhMNode;
 import com.itahm.Server;
+import com.itahm.enterprise.Enterprise;
 import com.itahm.http.Response;
 
 @SuppressWarnings("serial")
@@ -340,13 +341,11 @@ public class ITAhM extends HttpServlet implements Server {
 
 	@Override
 	public void setEnterprisePDU(PDU pdu, String pen) {
-		// TODO Auto-generated method stub
-		
+		Enterprise.setEnterprisePDU(pdu, pen);
 	}
 
 	@Override
 	public boolean parseEnterprise(ITAhMNode node, OID response, Variable variable, OID request) {
-		// TODO Auto-generated method stub
-		return false;
+		return Enterprise.parseEnterprise(node, response, variable, request);
 	}
 }
